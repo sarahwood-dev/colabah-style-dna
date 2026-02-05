@@ -1,8 +1,63 @@
-import { useActionData } from "@remix-run/react";
+import { authenticate } from "../shopify.server";
+
+export const loader = async ({ request }) => {
+  await authenticate.admin(request);
+  return null;
+};
+
+export const action = async ({ request }) => {
+  const { admin } = await authenticate.admin(request);
+  
+  const formData = await request.formData();
+  const customerId = formData.get("customerId");
+  const styleDNA = formData.get("styleDNA");
+
+  console.log("✅ Received:", { customerId, styleDNA });
+
+  const mutation = `
+    mutation SetCustomerStyleDNA($input: CustomerInput!) {
+      customerUpdate(input: $input) {
+        customer {
+          id
+          metafield(namespace: "custom", key: "style_dna") {
+            value
+          }
+        }
+        userErrors {
+          field
+          message
+        }
+      }
+    }
+  `;
+
+  const gqlRes = await admin.graphql(mutation, {
+    variables: {
+      input: {
+        id: customerId,
+        metafields: [{
+          namespace: "custom",
+          key: "style_dna",
+          type: "single_line_text_field",
+          value: styleDNA,
+        }],
+      },
+    },
+  });
+
+  const result = await gqlRes.json();
+  console.log("📦 Result:", JSON.stringify(result, null, 2));
+
+  const errors = result?.data?.customerUpdate?.userErrors ?? [];
+  
+  return {
+    success: errors.length === 0,
+    errors,
+    value: result.data?.customerUpdate?.customer?.metafield?.value,
+  };
+};
 
 export default function SaveStyleDNA() {
-  const actionData = useActionData();
-  
   return (
     <div style={{ padding: 20 }}>
       <h1>Save Customer Style DNA</h1>
@@ -13,13 +68,6 @@ export default function SaveStyleDNA() {
           Save Style DNA
         </button>
       </form>
-      
-      {actionData && (
-        <div style={{ marginTop: 20, padding: 15, background: actionData.success ? '#d4edda' : '#f8d7da' }}>
-          <h3>{actionData.success ? '✅ Success!' : '❌ Error'}</h3>
-          <pre>{JSON.stringify(actionData, null, 2)}</pre>
-        </div>
-      )}
     </div>
   );
 }
