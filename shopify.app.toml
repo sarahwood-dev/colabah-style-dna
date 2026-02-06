@@ -26,3 +26,8 @@ scopes = "write_customers,read_customers"
 
 [build]
 automatically_update_urls_on_dev = false
+
+[app_proxy]
+url = "https://colabah-style-dna.onrender.com/apps/proxy"
+subpath = "style-dna-proxy"
+prefix = "apps"
