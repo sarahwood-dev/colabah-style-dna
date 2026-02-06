@@ -27,7 +27,9 @@ scopes = "write_customers,read_customers"
 [build]
 automatically_update_urls_on_dev = false
 
+# App Proxy configuration
+# Maps /apps/* requests to your app
 [app_proxy]
 url = "https://colabah-style-dna.onrender.com/apps/proxy"
-subpath = "style-dna-proxy"
+subpath = "colabah"
 prefix = "apps"
