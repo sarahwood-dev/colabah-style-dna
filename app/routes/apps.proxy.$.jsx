@@ -188,8 +188,8 @@ export const action = async ({ request, params }) => {
       throw new Error("Missing shop parameter");
     }
 
-    // Authenticate and get admin - this approach loads the offline session automatically
-    const { admin } = await authenticate.public(request);
+    // Authenticate app proxy request - THIS IS THE FIX
+    const { admin } = await authenticate.public.appProxy(request);
     
     const path = params["*"];
     console.log("📍 Path:", path);
