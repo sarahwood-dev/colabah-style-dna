@@ -1,7 +1,16 @@
 import { authenticate } from "../shopify.server";
 
+// Loader for GET requests (returns method not allowed)
+export const loader = async ({ request }) => {
+  return new Response(JSON.stringify({ message: "Use POST method" }), {
+    status: 405,
+    headers: { "Content-Type": "application/json" }
+  });
+};
+
 // Handler for saving style DNA to existing customer
 async function handleStyleDNA(request, admin, session) {
+ 
   const formData = await request.formData();
   const styleDNA = formData.get("style");
   
