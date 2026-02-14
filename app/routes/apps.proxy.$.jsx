@@ -181,6 +181,9 @@ async function handleCreateAccount(request, admin) {
 // Main action
 export const action = async ({ request, params }) => {
   try {
+    // Verify the app proxy request
+    await authenticate.public.appProxy(request);
+    
     const url = new URL(request.url);
     const shop = url.searchParams.get('shop');
     
@@ -188,12 +191,29 @@ export const action = async ({ request, params }) => {
       throw new Error("Missing shop parameter");
     }
 
-    // Authenticate app proxy request - THIS IS THE FIX
-    const { admin } = await authenticate.public.appProxy(request);
+    // Import sessionStorage from shopify.server
+    const { sessionStorage } = await import("../shopify.server");
+    
+    // Get offline session for admin access
+    const sessionId = `offline_${shop}`;
+    const session = await sessionStorage.loadSession(sessionId);
+    
+    console.log("🔍 Offline session:", session ? "exists" : "missing");
+    
+    if (!session) {
+      throw new Error("App not installed on this shop");
+    }
+
+    // Create admin client manually
+    const { shopifyApi } = await import("@shopify/shopify-app-react-router/server");
+    const shopify = shopifyApi({
+      apiVersion: "2026-04"
+    });
+    
+    const admin = new shopify.clients.Graphql({ session });
     
     const path = params["*"];
     console.log("📍 Path:", path);
-    console.log("🔍 Admin:", admin ? "exists" : "missing");
 
     if (path?.includes('create-account')) {
       return await handleCreateAccount(request, admin);
@@ -207,7 +227,8 @@ export const action = async ({ request, params }) => {
   } catch (e) {
     console.error("💥 Error:", e);
     return new Response(JSON.stringify({ 
-      error: e.message 
+      error: e.message,
+      stack: e.stack 
     }), { 
       status: 500,
       headers: { "Content-Type": "application/json" }
