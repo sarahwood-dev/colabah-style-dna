@@ -282,19 +282,18 @@ async function handleCreateAccount(request, admin) {
 }
 
 // Main proxy route handler
-export const action = async ({ request }) => {
+export const action = async ({ request, params }) => {
   try {
     const { session, admin } = await authenticate.public.appProxy(request);
     const url = new URL(request.url);
-    const pathname = url.pathname;
+    const path = params["*"]; // This captures everything after /apps/proxy/
 
-    console.log("📍 Proxy request received:", pathname);
+    console.log("📍 Proxy request received:", path);
 
-    // Route to appropriate handler based on path
-    // Check the pathname without query params
-    if (pathname.includes('create-account')) {
+    // Route based on the captured path
+    if (path.includes('create-account')) {
       return await handleCreateAccount(request, admin);
-    } else if (pathname.includes('style-dna')) {
+    } else if (path.includes('style-dna')) {
       return await handleStyleDNA(request, admin, session);
     }
 
