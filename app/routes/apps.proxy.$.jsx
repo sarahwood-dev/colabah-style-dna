@@ -285,15 +285,16 @@ async function handleCreateAccount(request, admin) {
 export const action = async ({ request, params }) => {
   try {
     const { session, admin } = await authenticate.public.appProxy(request);
-    const url = new URL(request.url);
     const path = params["*"]; // This captures everything after /apps/proxy/
 
     console.log("📍 Proxy request received:", path);
+    console.log("🔍 Admin object:", admin ? "exists" : "undefined");
+    console.log("🔍 Session object:", session ? "exists" : "undefined");
 
     // Route based on the captured path
-    if (path.includes('create-account')) {
+    if (path && path.includes('create-account')) {
       return await handleCreateAccount(request, admin);
-    } else if (path.includes('style-dna')) {
+    } else if (path && path.includes('style-dna')) {
       return await handleStyleDNA(request, admin, session);
     }
 
