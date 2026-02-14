@@ -194,15 +194,24 @@ export const action = async ({ request, params }) => {
     // Import sessionStorage from shopify.server
     const { sessionStorage } = await import("../shopify.server");
     
-    // Get offline session for admin access
-    const sessionId = `offline_${shop}`;
-    const session = await sessionStorage.loadSession(sessionId);
+    // Try different session ID formats
+    const sessionId1 = `offline_${shop}`;
+    const sessionId2 = shop;
     
-    console.log("🔍 Offline session:", session ? "exists" : "missing");
+    let session = await sessionStorage.loadSession(sessionId1);
+    console.log("🔍 Trying offline_shop format:", session ? "FOUND" : "NOT FOUND");
     
     if (!session) {
-      throw new Error("App not installed on this shop");
+      session = await sessionStorage.loadSession(sessionId2);
+      console.log("🔍 Trying shop format:", session ? "FOUND" : "NOT FOUND");
     }
+    
+    if (!session) {
+      console.log("❌ No session found. Tried:", sessionId1, sessionId2);
+      throw new Error(`App not installed. Tried: ${sessionId1}, ${sessionId2}`);
+    }
+
+    console.log("✅ Session found:", session.id);
 
     // Create admin client manually
     const { shopifyApi } = await import("@shopify/shopify-app-react-router/server");
