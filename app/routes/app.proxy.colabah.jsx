@@ -279,15 +279,20 @@ export const action = async ({ request }) => {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
+    console.log("📍 Proxy request received:", pathname);
+
     // Route to appropriate handler based on path
-    if (pathname.includes('/style-dna')) {
-      return await handleStyleDNA(request, admin, session);
-    } else if (pathname.includes('/create-account')) {
+    // Check the pathname without query params
+    if (pathname.includes('create-account')) {
       return await handleCreateAccount(request, admin);
+    } else if (pathname.includes('style-dna')) {
+      return await handleStyleDNA(request, admin, session);
     }
 
+    console.log("❌ No route matched for:", pathname);
     return new Response(JSON.stringify({ 
-      error: "Unknown route" 
+      error: "Unknown route",
+      pathname: pathname
     }), { 
       status: 404,
       headers: { "Content-Type": "application/json" }

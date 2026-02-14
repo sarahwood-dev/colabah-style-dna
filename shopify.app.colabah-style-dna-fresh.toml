@@ -1,12 +1,9 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "5db5d8beff6774dfa9d650a22adf07b8"
-name = "colabah-style-dna"
-application_url = "https://colabah-style-dna.onrender.com"
+client_id = "12790c91a2d041d9edcf38d3fefc321b"
+name = "colabah-style-dna-fresh"
+application_url = "https://example.com"
 embedded = true
-
-[build]
-automatically_update_urls_on_dev = false
 
 [webhooks]
 api_version = "2026-04"
@@ -24,9 +21,4 @@ api_version = "2026-04"
 scopes = "read_customers,write_customers"
 
 [auth]
-redirect_urls = [ "https://colabah-style-dna.onrender.com/auth/callback" ]
-
-[app_proxy]
-url = "https://colabah-style-dna.onrender.com/apps/proxy"
-subpath = "colabah"
-prefix = "apps"
+redirect_urls = [ "https://example.com/api/auth" ]
