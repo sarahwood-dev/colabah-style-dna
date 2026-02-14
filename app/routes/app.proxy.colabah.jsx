@@ -1,4 +1,4 @@
-import { authenticate } from "../shopify.server";
+import { authenticate } from "../../shopify.server";
 
 // Handler for saving style DNA to existing customer
 async function handleStyleDNA(request, admin, session) {
@@ -161,10 +161,12 @@ async function handleCreateAccount(request, admin) {
   if (errors.length > 0) {
     console.error("❌ GraphQL Errors:", errors);
     
-    // Check if customer already exists
+    // Check if customer already exists - look for various error patterns
     const existingCustomerError = errors.find(e => 
       e.message?.toLowerCase().includes('taken') || 
-      e.message?.toLowerCase().includes('already exists')
+      e.message?.toLowerCase().includes('already exists') ||
+      e.message?.toLowerCase().includes('expected pattern') ||
+      e.field?.includes('email')
     );
     
     if (existingCustomerError) {
@@ -241,7 +243,7 @@ async function handleCreateAccount(request, admin) {
         return new Response(JSON.stringify({
           success: true,
           existing: true,
-          message: "Style DNA saved to your existing account"
+          message: "Your Style DNA has been saved to your existing account"
         }), {
           headers: { "Content-Type": "application/json" }
         });
