@@ -1,4 +1,4 @@
-import { authenticate } from "../shopify.server";
+import { authenticate } from "../../shopify.server";
 
 // Handler for saving style DNA to existing customer
 async function handleStyleDNA(request, admin, session) {
