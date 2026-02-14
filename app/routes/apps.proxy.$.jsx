@@ -1,4 +1,5 @@
 import { authenticate } from "../shopify.server";
+import shopify from "../shopify.server"; // Add this line
 
 // Loader for GET requests (returns method not allowed)
 export const loader = async ({ request }) => {
@@ -284,24 +285,58 @@ async function handleCreateAccount(request, admin) {
 // Main proxy route handler
 export const action = async ({ request, params }) => {
   try {
-    const { session, admin } = await authenticate.public.appProxy(request);
-    const path = params["*"]; // This captures everything after /apps/proxy/
+    // Verify the app proxy request
+    const { session } = await authenticate.public.appProxy(request);
+    
+    // Get the shop from query params
+    const url = new URL(request.url);
+    const shop = url.searchParams.get('shop');
+    
+    console.log("🏪 Shop:", shop);
+    
+    if (!shop) {
+      return new Response(JSON.stringify({ 
+        error: "Missing shop parameter" 
+      }), { 
+        status: 400,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    // Get the offline session for admin access
+    const sessionId = `offline_${shop}`;
+    const offlineSession = await shopify.config.sessionStorage.loadSession(sessionId);
+    
+    console.log("🔍 Offline session:", offlineSession ? "exists" : "undefined");
+    
+    if (!offlineSession) {
+      return new Response(JSON.stringify({ 
+        error: "App not installed on this shop" 
+      }), { 
+        status: 401,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+
+    // Create admin client with the offline session
+    const admin = new shopify.clients.Graphql({
+      session: offlineSession
+    });
+
+    const path = params["*"];
 
     console.log("📍 Proxy request received:", path);
-    console.log("🔍 Admin object:", admin ? "exists" : "undefined");
-    console.log("🔍 Session object:", session ? "exists" : "undefined");
 
-    // Route based on the captured path
     if (path && path.includes('create-account')) {
       return await handleCreateAccount(request, admin);
     } else if (path && path.includes('style-dna')) {
       return await handleStyleDNA(request, admin, session);
     }
 
-    console.log("❌ No route matched for:", pathname);
+    console.log("❌ No route matched for:", path);
     return new Response(JSON.stringify({ 
       error: "Unknown route",
-      pathname: pathname
+      path: path
     }), { 
       status: 404,
       headers: { "Content-Type": "application/json" }
