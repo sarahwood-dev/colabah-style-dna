@@ -1,7 +1,6 @@
 import { authenticate } from "../shopify.server";
-import shopify from "../shopify.server"; // Add this line
 
-// Loader for GET requests (returns method not allowed)
+// Loader for GET requests
 export const loader = async ({ request }) => {
   return new Response(JSON.stringify({ message: "Use POST method" }), {
     status: 405,
@@ -9,95 +8,7 @@ export const loader = async ({ request }) => {
   });
 };
 
-// Handler for saving style DNA to existing customer
-async function handleStyleDNA(request, admin, session) {
- 
-  const formData = await request.formData();
-  const styleDNA = formData.get("style");
-  
-  if (!styleDNA) {
-    return new Response(JSON.stringify({ error: "Missing style" }), { 
-      status: 400,
-      headers: { "Content-Type": "application/json" }
-    });
-  }
-
-  // If customer is not logged in, return success (they'll use localStorage)
-  if (!session?.customer?.id) {
-    console.log("ℹ️ Guest user - Style DNA saved to localStorage only");
-    return new Response(JSON.stringify({ 
-      success: true, 
-      guest: true,
-      message: "Style saved locally" 
-    }), {
-      headers: { "Content-Type": "application/json" }
-    });
-  }
-
-  console.log("✅ Saving Style DNA for customer:", session.customer.id, "Style:", styleDNA);
-
-  const customerId = `gid://shopify/Customer/${session.customer.id}`;
-
-  const mutation = `
-    mutation SetCustomerStyleDNA($input: CustomerInput!) {
-      customerUpdate(input: $input) {
-        customer {
-          id
-          metafield(namespace: "custom", key: "style_dna") {
-            value
-          }
-        }
-        userErrors {
-          field
-          message
-        }
-      }
-    }
-  `;
-
-  const gqlRes = await admin.graphql(mutation, {
-    variables: {
-      input: {
-        id: customerId,
-        metafields: [{
-          namespace: "custom",
-          key: "style_dna",
-          type: "single_line_text_field",
-          value: styleDNA,
-        }],
-      },
-    },
-  });
-
-  const result = await gqlRes.json();
-  console.log("📦 GraphQL Result:", JSON.stringify(result, null, 2));
-
-  const errors = result?.data?.customerUpdate?.userErrors ?? [];
-  
-  if (errors.length > 0) {
-    console.error("❌ GraphQL Errors:", errors);
-    return new Response(JSON.stringify({ 
-      success: false, 
-      errors 
-    }), { 
-      status: 400,
-      headers: { "Content-Type": "application/json" }
-    });
-  }
-
-  const savedValue = result.data?.customerUpdate?.customer?.metafield?.value;
-  console.log("✅ Successfully saved style DNA:", savedValue);
-
-  return new Response(JSON.stringify({
-    success: true,
-    value: savedValue,
-    customerId: session.customer.id
-  }), {
-    headers: { "Content-Type": "application/json" }
-  });
-}
-
-// Handler for creating customer account with style DNA
+// Handler for creating customer account
 async function handleCreateAccount(request, admin) {
   const formData = await request.formData();
   const email = formData.get("email");
@@ -107,18 +18,6 @@ async function handleCreateAccount(request, admin) {
     return new Response(JSON.stringify({ 
       success: false,
       error: "Email and style are required" 
-    }), { 
-      status: 400,
-      headers: { "Content-Type": "application/json" }
-    });
-  }
-
-  // Validate email format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return new Response(JSON.stringify({ 
-      success: false,
-      error: "Invalid email address" 
     }), { 
       status: 400,
       headers: { "Content-Type": "application/json" }
@@ -171,12 +70,9 @@ async function handleCreateAccount(request, admin) {
   if (errors.length > 0) {
     console.error("❌ GraphQL Errors:", errors);
     
-    // Check if customer already exists - look for various error patterns
     const existingCustomerError = errors.find(e => 
       e.message?.toLowerCase().includes('taken') || 
-      e.message?.toLowerCase().includes('already exists') ||
-      e.message?.toLowerCase().includes('expected pattern') ||
-      e.field?.includes('email')
+      e.message?.toLowerCase().includes('already exists')
     );
     
     if (existingCustomerError) {
@@ -282,71 +178,36 @@ async function handleCreateAccount(request, admin) {
   });
 }
 
-// Main proxy route handler
+// Main action
 export const action = async ({ request, params }) => {
   try {
-    // Verify the app proxy request
-    const { session } = await authenticate.public.appProxy(request);
-    
-    // Get the shop from query params
     const url = new URL(request.url);
     const shop = url.searchParams.get('shop');
     
-    console.log("🏪 Shop:", shop);
-    
     if (!shop) {
-      return new Response(JSON.stringify({ 
-        error: "Missing shop parameter" 
-      }), { 
-        status: 400,
-        headers: { "Content-Type": "application/json" }
-      });
+      throw new Error("Missing shop parameter");
     }
 
-    // Get the offline session for admin access
-    const sessionId = `offline_${shop}`;
-    const offlineSession = await shopify.config.sessionStorage.loadSession(sessionId);
+    // Authenticate and get admin - this approach loads the offline session automatically
+    const { admin } = await authenticate.public(request);
     
-    console.log("🔍 Offline session:", offlineSession ? "exists" : "undefined");
-    
-    if (!offlineSession) {
-      return new Response(JSON.stringify({ 
-        error: "App not installed on this shop" 
-      }), { 
-        status: 401,
-        headers: { "Content-Type": "application/json" }
-      });
-    }
-
-    // Create admin client with the offline session
-    const admin = new shopify.clients.Graphql({
-      session: offlineSession
-    });
-
     const path = params["*"];
+    console.log("📍 Path:", path);
+    console.log("🔍 Admin:", admin ? "exists" : "missing");
 
-    console.log("📍 Proxy request received:", path);
-
-    if (path && path.includes('create-account')) {
+    if (path?.includes('create-account')) {
       return await handleCreateAccount(request, admin);
-    } else if (path && path.includes('style-dna')) {
-      return await handleStyleDNA(request, admin, session);
     }
 
-    console.log("❌ No route matched for:", path);
-    return new Response(JSON.stringify({ 
-      error: "Unknown route",
-      path: path
-    }), { 
+    return new Response(JSON.stringify({ error: "Unknown route" }), { 
       status: 404,
       headers: { "Content-Type": "application/json" }
     });
 
   } catch (e) {
-    console.error("💥 Proxy Error:", e);
+    console.error("💥 Error:", e);
     return new Response(JSON.stringify({ 
-      error: e.message,
-      stack: e.stack 
+      error: e.message 
     }), { 
       status: 500,
       headers: { "Content-Type": "application/json" }
