@@ -8,8 +8,8 @@ export const loader = async ({ request }) => {
   });
 };
 
-// Handler for creating customer account
-async function handleCreateAccount(request, admin) {
+// Handler for saving style profile (creates or updates customer)
+async function handleSaveStyle(request, admin) {
   const formData = await request.formData();
   const email = formData.get("email");
   const styleDNA = formData.get("style");
@@ -73,13 +73,13 @@ async function handleCreateAccount(request, admin) {
     return new Response(JSON.stringify({
       success: true,
       existing: true,
-      message: "Your Style DNA has been updated"
+      message: "Your style profile has been saved!"
     }), {
       headers: { "Content-Type": "application/json" }
     });
   }
 
-  // Step 2b: Create new customer
+  // Step 2b: Create new customer with email marketing subscribed
   const createRes = await admin.graphql(
     `mutation CreateCustomer($input: CustomerInput!) {
       customerCreate(input: $input) {
@@ -91,6 +91,10 @@ async function handleCreateAccount(request, admin) {
       variables: {
         input: {
           email,
+          emailMarketingConsent: {
+            marketingState: "SUBSCRIBED",
+            marketingOptInLevel: "SINGLE_OPT_IN",
+          },
           metafields: [{
             namespace: "custom",
             key: "style_dna",
@@ -107,7 +111,7 @@ async function handleCreateAccount(request, admin) {
   if (createErrors.length > 0) {
     return new Response(JSON.stringify({
       success: false,
-      error: createErrors[0]?.message || "Failed to create account"
+      error: createErrors[0]?.message || "Failed to save style profile"
     }), {
       status: 400,
       headers: { "Content-Type": "application/json" }
@@ -117,7 +121,7 @@ async function handleCreateAccount(request, admin) {
   return new Response(JSON.stringify({
     success: true,
     existing: false,
-    message: "Account created! Log in anytime at our store to view your Style DNA."
+    message: "Your style profile has been saved!"
   }), {
     headers: { "Content-Type": "application/json" }
   });
@@ -141,8 +145,8 @@ export const action = async ({ request, params }) => {
 
     const path = params["*"];
 
-    if (path?.includes('create-account')) {
-      return await handleCreateAccount(request, admin);
+    if (path?.includes('save-style') || path?.includes('create-account')) {
+      return await handleSaveStyle(request, admin);
     }
 
     return new Response(JSON.stringify({ error: "Unknown route" }), {
