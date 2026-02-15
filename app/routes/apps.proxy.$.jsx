@@ -181,64 +181,36 @@ async function handleCreateAccount(request, admin) {
 // Main action
 export const action = async ({ request, params }) => {
   try {
-    // Verify the app proxy request
-    await authenticate.public.appProxy(request);
-    
-    const url = new URL(request.url);
-    const shop = url.searchParams.get('shop');
-    
-    if (!shop) {
-      throw new Error("Missing shop parameter");
+    const { admin, session } = await authenticate.public.appProxy(request);
+
+    if (!admin || !session) {
+      console.error("No offline session found for shop. App may need to be reinstalled.");
+      return new Response(JSON.stringify({
+        success: false,
+        error: "App is not installed on this store. Please install the app first."
+      }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" }
+      });
     }
 
-    // Import sessionStorage from shopify.server
-    const { sessionStorage } = await import("../shopify.server");
-    
-    // Try different session ID formats
-    const sessionId1 = `offline_${shop}`;
-    const sessionId2 = shop;
-    
-    let session = await sessionStorage.loadSession(sessionId1);
-    console.log("🔍 Trying offline_shop format:", session ? "FOUND" : "NOT FOUND");
-    
-    if (!session) {
-      session = await sessionStorage.loadSession(sessionId2);
-      console.log("🔍 Trying shop format:", session ? "FOUND" : "NOT FOUND");
-    }
-    
-    if (!session) {
-      console.log("❌ No session found. Tried:", sessionId1, sessionId2);
-      throw new Error(`App not installed. Tried: ${sessionId1}, ${sessionId2}`);
-    }
-
-    console.log("✅ Session found:", session.id);
-
-    // Create admin client manually
-    const { shopifyApi } = await import("@shopify/shopify-app-react-router/server");
-    const shopify = shopifyApi({
-      apiVersion: "2026-04"
-    });
-    
-    const admin = new shopify.clients.Graphql({ session });
-    
     const path = params["*"];
-    console.log("📍 Path:", path);
 
     if (path?.includes('create-account')) {
       return await handleCreateAccount(request, admin);
     }
 
-    return new Response(JSON.stringify({ error: "Unknown route" }), { 
+    return new Response(JSON.stringify({ error: "Unknown route" }), {
       status: 404,
       headers: { "Content-Type": "application/json" }
     });
 
   } catch (e) {
-    console.error("💥 Error:", e);
-    return new Response(JSON.stringify({ 
-      error: e.message,
-      stack: e.stack 
-    }), { 
+    console.error("App proxy error:", e);
+    return new Response(JSON.stringify({
+      success: false,
+      error: "Something went wrong. Please try again."
+    }), {
       status: 500,
       headers: { "Content-Type": "application/json" }
     });
