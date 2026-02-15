@@ -11,6 +11,7 @@ COPY package.json package-lock.json* ./
 
 RUN npm ci --omit=dev && npm cache clean --force
 
+ARG CACHEBUST=1
 COPY . .
 
 RUN npm run build
