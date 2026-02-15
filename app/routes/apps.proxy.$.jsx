@@ -114,25 +114,10 @@ async function handleCreateAccount(request, admin) {
     });
   }
 
-  const customerId = createResult.data?.customerCreate?.customer?.id;
-
-  // Step 3: Send account invite email
-  if (customerId) {
-    await admin.graphql(
-      `mutation SendInvite($customerId: ID!) {
-        customerSendAccountInviteEmail(customerId: $customerId) {
-          customer { id }
-          userErrors { field message }
-        }
-      }`,
-      { variables: { customerId } }
-    );
-  }
-
   return new Response(JSON.stringify({
     success: true,
     existing: false,
-    message: "Account created! Check your email to set your password."
+    message: "Account created! Log in anytime at our store to view your Style DNA."
   }), {
     headers: { "Content-Type": "application/json" }
   });
